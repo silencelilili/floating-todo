@@ -1,0 +1,107 @@
+{
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist",
+    "withGlobalTauri": false
+  },
+  "package": {
+    "productName": "浮光 Todo",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "dialog": { "open": true, "save": true },
+      "globalShortcut": { "all": true },
+      "path": { "all": true },
+      "window": {
+        "all": false,
+        "close": true,
+        "hide": true,
+        "show": true,
+        "setFocus": true,
+        "setAlwaysOnTop": true,
+        "setIgnoreCursorEvents": true,
+        "startDragging": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "Productivity",
+      "copyright": "© 2026 Floating Todo",
+      "identifier": "com.local.floatingtodo",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns"
+      ],
+      "longDescription": "一个本地优先、支持全局快捷输入和桌面悬浮列表的轻量 Todo 应用。",
+      "macOS": {
+        "minimumSystemVersion": "11.0",
+        "signingIdentity": "-"
+      },
+      "shortDescription": "桌面悬浮 Todo",
+      "targets": ["app"]
+    },
+    "macOSPrivateApi": true,
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+    },
+    "systemTray": {
+      "iconPath": "icons/trayTemplate.png",
+      "iconAsTemplate": true
+    },
+    "updater": { "active": false },
+    "windows": [
+      {
+        "label": "main",
+        "title": "浮光 Todo",
+        "width": 980,
+        "height": 680,
+        "minWidth": 760,
+        "minHeight": 520,
+        "center": true,
+        "decorations": true,
+        "resizable": true,
+        "transparent": false,
+        "visible": false
+      },
+      {
+        "label": "quick-capture",
+        "url": "index.html?window=quick-capture",
+        "title": "快速添加",
+        "width": 590,
+        "height": 150,
+        "minWidth": 440,
+        "minHeight": 130,
+        "center": true,
+        "alwaysOnTop": true,
+        "decorations": false,
+        "focus": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "transparent": true,
+        "visible": false
+      },
+      {
+        "label": "floating",
+        "url": "index.html?window=floating",
+        "title": "今日待办",
+        "width": 330,
+        "height": 440,
+        "minWidth": 250,
+        "minHeight": 55,
+        "maxWidth": 520,
+        "alwaysOnTop": true,
+        "decorations": false,
+        "resizable": true,
+        "skipTaskbar": true,
+        "transparent": true,
+        "visible": true
+      }
+    ]
+  }
+}
