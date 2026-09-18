@@ -75,6 +75,33 @@ export async function startCurrentWindowDragging(): Promise<void> {
   await appWindow.startDragging()
 }
 
+let expandedFloatingSize: { width: number; height: number } | null = null
+
+export async function setFloatingWindowCollapsed(collapsed: boolean): Promise<void> {
+  if (!isTauri()) return
+  const { appWindow, LogicalSize } = await import('@tauri-apps/api/window')
+  if (appWindow.label !== 'floating') return
+  if (collapsed === (expandedFloatingSize !== null)) return
+
+  const scale = await appWindow.scaleFactor()
+  const size = (await appWindow.innerSize()).toLogical(scale)
+  const position = await appWindow.outerPosition()
+  const target = collapsed ? { width: size.width, height: 55 } : expandedFloatingSize!
+
+  try {
+    await appWindow.setResizable(!collapsed)
+    await appWindow.setSize(new LogicalSize(target.width, target.height))
+    // Preserve the current top-left corner, including after dragging while collapsed.
+    await appWindow.setPosition(position)
+  } catch (error) {
+    await appWindow.setResizable(collapsed).catch(() => undefined)
+    await appWindow.setSize(size).catch(() => undefined)
+    await appWindow.setPosition(position).catch(() => undefined)
+    throw error
+  }
+  expandedFloatingSize = collapsed ? { width: size.width, height: size.height } : null
+}
+
 export async function closeCurrentWindow(): Promise<void> {
   if (!isTauri()) return
   const { appWindow } = await import('@tauri-apps/api/window')

@@ -24,6 +24,9 @@
         "setFocus": true,
         "setAlwaysOnTop": true,
         "setIgnoreCursorEvents": true,
+        "setSize": true,
+        "setPosition": true,
+        "setResizable": true,
         "startDragging": true
       }
     },

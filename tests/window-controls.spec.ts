@@ -6,7 +6,7 @@ import FloatingView from '@/views/FloatingView.vue'
 import MainView from '@/views/MainView.vue'
 import QuickCaptureView from '@/views/QuickCaptureView.vue'
 import { useTodoStore } from '@/stores/todo'
-import { listenCurrentWindowFocus, startCurrentWindowDragging } from '@/services/runtime'
+import { listenCurrentWindowFocus, setFloatingWindowCollapsed, startCurrentWindowDragging } from '@/services/runtime'
 
 vi.mock('@/services/runtime', () => ({
   configureDesktop: vi.fn().mockResolvedValue(undefined),
@@ -21,6 +21,7 @@ vi.mock('@/services/runtime', () => ({
   loadAppData: vi.fn(),
   saveAppData: vi.fn(),
   setFloatingClickThrough: vi.fn().mockResolvedValue(undefined),
+  setFloatingWindowCollapsed: vi.fn().mockResolvedValue(undefined),
   showWindow: vi.fn().mockResolvedValue(undefined),
   startCurrentWindowDragging: vi.fn().mockResolvedValue(undefined),
 }))
@@ -140,11 +141,36 @@ describe('window controls', () => {
     expect(wrapper.text()).not.toContain('打开主窗口')
 
     await wrapper.get('[title="收起"]').trigger('click')
+    await flushPromises()
 
+    expect(setFloatingWindowCollapsed).toHaveBeenCalledWith(true)
+    expect(wrapper.find('.floating-list').exists()).toBe(false)
     expect(wrapper.find('.floating-header__drag').exists()).toBe(true)
     expect(wrapper.get('.floating-header__title').text()).toContain('今天')
     expect(wrapper.get('.floating-header__actions').findAll('button')).toHaveLength(4)
     expect(wrapper.find('.floating-pill').exists()).toBe(false)
+    await wrapper.get('[title="展开"]').trigger('click')
+    await flushPromises()
+    expect(setFloatingWindowCollapsed).toHaveBeenLastCalledWith(false)
+    expect(wrapper.find('.floating-list').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('ignores repeated collapse clicks while resizing and keeps the view expanded on failure', async () => {
+    let rejectResize!: (error: Error) => void
+    vi.mocked(setFloatingWindowCollapsed).mockImplementationOnce(() => new Promise((_, reject) => { rejectResize = reject }))
+    const wrapper = mount(FloatingView)
+    const button = wrapper.get('[aria-label="收起"]')
+    await button.trigger('click')
+    await button.trigger('click')
+    expect(setFloatingWindowCollapsed).toHaveBeenCalledTimes(1)
+    expect(button.attributes('disabled')).toBeDefined()
+    rejectResize(new Error('resize failed'))
+    await flushPromises()
+    expect(wrapper.find('.floating-list').exists()).toBe(true)
+    expect(button.attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[role="status"]').text()).toContain('请重试')
+    wrapper.unmount()
   })
 
   it('shows every active task for today in compact mode', () => {

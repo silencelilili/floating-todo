@@ -3,15 +3,31 @@ import { computed, ref } from 'vue'
 import { AppWindow, ChevronDown, GripHorizontal, Lock, Maximize2, Minimize2, MoreHorizontal, Plus, Unlock, X } from 'lucide-vue-next'
 import QuickAdd from '@/components/QuickAdd.vue'
 import TaskRow from '@/components/TaskRow.vue'
-import { hideCurrentWindow, setFloatingClickThrough, showWindow, startCurrentWindowDragging } from '@/services/runtime'
+import { hideCurrentWindow, setFloatingClickThrough, setFloatingWindowCollapsed, showWindow, startCurrentWindowDragging } from '@/services/runtime'
 import { useTodoStore } from '@/stores/todo'
 
 const store = useTodoStore()
 const collapsed = ref(false)
+const resizing = ref(false)
+const resizeError = ref('')
 const adding = ref(false)
 const menuOpen = ref(false)
 const active = computed(() => store.todayTasks.filter((task) => task.status === 'active'))
 const completed = computed(() => store.todayTasks.filter((task) => task.status === 'completed'))
+
+async function toggleCollapsed() {
+  if (resizing.value) return
+  resizing.value = true
+  resizeError.value = ''
+  try {
+    await setFloatingWindowCollapsed(!collapsed.value)
+    collapsed.value = !collapsed.value
+  } catch {
+    resizeError.value = '调整窗口大小失败，请重试'
+  } finally {
+    resizing.value = false
+  }
+}
 
 async function toggleLock() {
   const locked = !store.settings.floatingLocked
@@ -60,12 +76,13 @@ function beginWindowDrag(event: MouseEvent) {
         <button type="button" :title="store.settings.floatingLocked ? '解锁位置' : '锁定位置'" @click="toggleLock">
           <Lock v-if="store.settings.floatingLocked" :size="15" /><Unlock v-else :size="15" />
         </button>
-        <button type="button" :title="collapsed ? '展开' : '收起'" @click="collapsed = !collapsed">
+        <button type="button" :title="resizeError || (collapsed ? '展开' : '收起')" :aria-label="collapsed ? '展开' : '收起'" :aria-expanded="!collapsed" :disabled="resizing" @click="toggleCollapsed">
           <Maximize2 v-if="collapsed" :size="15" /><Minimize2 v-else :size="15" />
         </button>
         <button type="button" title="隐藏" @click="hideCurrentWindow"><X :size="16" /></button>
       </div>
     </header>
+    <span class="floating-resize-status" role="status">{{ resizeError }}</span>
 
     <template v-if="!collapsed">
       <div class="floating-progress">

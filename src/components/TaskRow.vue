@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { Archive, CalendarDays, Clock3, Inbox, MoreHorizontal, Pin, RotateCcw, Sun, Trash2 } from 'lucide-vue-next'
-import type { Task } from '@/domain/task'
+import { localDateKey, type Task, type TaskPriority } from '@/domain/task'
 import { useTodoStore } from '@/stores/todo'
 import IconButton from './IconButton.vue'
 
@@ -17,6 +17,12 @@ const props = withDefaults(defineProps<{
 const store = useTodoStore()
 const editing = ref(false)
 const editTitle = ref('')
+const editPriority = ref<TaskPriority>(0)
+const editDate = ref('')
+const editTime = ref('')
+const editInput = ref<HTMLInputElement | null>(null)
+let originalDate = ''
+let originalTime = ''
 const menuOpen = ref(false)
 const dragging = ref(false)
 
@@ -24,7 +30,8 @@ const completed = computed(() => props.task.status === 'completed' || props.task
 const meta = computed(() => {
   const result: string[] = []
   if (props.task.dueAt) {
-    result.push(new Date(props.task.dueAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
+    const due = new Date(props.task.dueAt)
+    result.push(`${localDateKey(due)} ${due.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`)
   } else if (props.task.scheduledDate) {
     result.push(props.task.scheduledDate)
   }
@@ -33,15 +40,55 @@ const meta = computed(() => {
 })
 
 function beginEdit() {
+  if (editing.value) return
   editTitle.value = props.task.title
+  editPriority.value = props.task.priority
+  const due = props.task.dueAt ? new Date(props.task.dueAt) : null
+  editDate.value = props.task.scheduledDate ?? (due ? localDateKey(due) : '')
+  editTime.value = due ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}` : ''
+  originalDate = editDate.value
+  originalTime = editTime.value
   editing.value = true
   menuOpen.value = false
+  void nextTick(() => editInput.value?.focus())
 }
 
 function saveEdit() {
   const title = editTitle.value.trim()
-  if (title && title !== props.task.title) store.patchTask(props.task.id, { title })
+  if (!title) {
+    editInput.value?.focus()
+    return
+  }
+  const patch: Partial<Task> = {}
+  if (title !== props.task.title) patch.title = title
+  if (editPriority.value !== props.task.priority) patch.priority = editPriority.value
+  if (editDate.value !== originalDate || editTime.value !== originalTime) {
+    patch.scheduledDate = editDate.value || null
+    patch.dueAt = editDate.value && editTime.value
+      ? new Date(`${editDate.value}T${editTime.value}`).toISOString()
+      : null
+    // Keep scheduling consistent with task creation without reopening completed tasks.
+    if (props.task.listId === 'inbox' || props.task.listId === 'today') {
+      patch.listId = editDate.value ? 'today' : 'inbox'
+    }
+    if (props.task.status === 'active' || props.task.status === 'inbox') {
+      patch.status = editDate.value ? 'active' : 'inbox'
+    }
+  }
+  if (Object.keys(patch).length) store.patchTask(props.task.id, patch)
   editing.value = false
+}
+
+function onEditKeydown(event: KeyboardEvent) {
+  if (event.isComposing) {
+    if (event.key === 'Enter') event.preventDefault()
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    editing.value = false
+  }
 }
 
 function onDragStart(event: DragEvent) {
@@ -59,8 +106,8 @@ function onDrop(event: DragEvent) {
 <template>
   <article
     class="task-row"
-    :class="{ 'is-completed': completed, 'is-compact': compact, 'is-dragging': dragging }"
-    :draggable="task.status === 'active' || task.status === 'inbox'"
+    :class="{ 'is-completed': completed, 'is-compact': compact, 'is-dragging': dragging, 'is-editing': editing }"
+    :draggable="!editing && (task.status === 'active' || task.status === 'inbox')"
     @dragstart="onDragStart"
     @dragend="dragging = false"
     @dragover.prevent
@@ -72,21 +119,47 @@ function onDrop(event: DragEvent) {
       class="task-check"
       :class="{ 'is-checked': completed }"
       :aria-label="completed ? '恢复任务' : '完成任务'"
+      :disabled="editing"
       @click="store.toggleTask(task.id)"
     >
       <span v-if="completed">✓</span>
     </button>
 
     <div class="task-row__body">
-      <input
+      <form
         v-if="editing"
-        v-model="editTitle"
-        class="task-row__edit"
-        autofocus
-        @keydown.enter.prevent="saveEdit"
-        @keydown.esc="editing = false"
-        @blur="saveEdit"
-      />
+        class="task-row__editor"
+        aria-label="编辑任务"
+        @submit.prevent="saveEdit"
+        @keydown="onEditKeydown"
+        @dblclick.stop
+      >
+        <input ref="editInput" v-model="editTitle" class="task-row__edit" aria-label="任务名称" required />
+        <div class="task-row__edit-fields">
+          <label>
+            <span>优先级</span>
+            <select v-model="editPriority" aria-label="优先级">
+              <option :value="0">无优先级</option>
+              <option :value="1">P1 普通</option>
+              <option :value="2">P2 高</option>
+              <option :value="3">P3 紧急</option>
+            </select>
+          </label>
+          <label>
+            <span>日期</span>
+            <input v-model="editDate" type="date" aria-label="日期" @input="editTime = editDate ? editTime : ''" />
+          </label>
+          <label>
+            <span>时间（可选）</span>
+            <input v-model="editTime" type="time" aria-label="时间" :disabled="!editDate" />
+          </label>
+        </div>
+        <div class="task-row__edit-actions">
+          <button v-if="editDate || editTime" type="button" class="task-row__clear-date" @click="editDate = ''; editTime = ''">清除日期和时间</button>
+          <button type="button" @click="editing = false">取消</button>
+          <button type="submit" class="task-row__save" :disabled="!editTitle.trim()">保存</button>
+        </div>
+      </form>
       <template v-else>
         <div class="task-row__title-line">
           <Pin v-if="task.pinned" :size="13" class="task-row__pin" fill="currentColor" />
@@ -103,7 +176,7 @@ function onDrop(event: DragEvent) {
       </template>
     </div>
 
-    <div v-if="showActions" class="task-row__actions">
+    <div v-if="showActions && !editing" class="task-row__actions">
       <IconButton
         v-if="task.status === 'archived' || task.status === 'deleted'"
         label="恢复"

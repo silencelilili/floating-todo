@@ -1,0 +1,11 @@
+{
+  "tauri": {
+    "bundle": {
+      "icon": ["icons/icon.ico"]
+    },
+    "systemTray": {
+      "iconPath": "icons/icon.ico",
+      "iconAsTemplate": false
+    }
+  }
+}
