@@ -40,7 +40,7 @@ const meta = computed(() => {
 })
 
 function beginEdit() {
-  if (editing.value) return
+  if (editing.value || props.task.status === 'deleted') return
   editTitle.value = props.task.title
   editPriority.value = props.task.priority
   const due = props.task.dueAt ? new Date(props.task.dueAt) : null
@@ -115,6 +115,7 @@ function onDrop(event: DragEvent) {
     @dblclick="beginEdit"
   >
     <button
+      v-if="task.status !== 'deleted'"
       type="button"
       class="task-check"
       :class="{ 'is-checked': completed }"

@@ -1,6 +1,6 @@
 [package]
 name = "floating-todo"
-version = "0.1.0"
+version = "0.2.0"
 description = "一个常驻桌面、快捷记录的本地优先 Todo"
 authors = ["Floating Todo"]
 edition = "2021"
