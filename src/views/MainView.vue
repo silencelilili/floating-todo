@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleEllipsis,
+  Clipboard,
   Inbox,
   LayoutList,
   MoreHorizontal,
@@ -23,9 +24,10 @@ import { showWindow } from '@/services/runtime'
 import QuickAdd from '@/components/QuickAdd.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
+import ClipboardView from '@/views/ClipboardView.vue'
 
 const store = useTodoStore()
-type ViewKey = 'today' | 'inbox' | 'all' | 'completed' | 'archived' | 'deleted' | 'settings'
+type ViewKey = 'today' | 'inbox' | 'all' | 'completed' | 'archived' | 'deleted' | 'settings' | 'clipboard'
 const activeView = ref<ViewKey>('today')
 const search = ref('')
 const showCompleted = ref(true)
@@ -46,6 +48,7 @@ const nav = [
   { key: 'today' as const, label: '今天', icon: Sun },
   { key: 'inbox' as const, label: '收集箱', icon: Inbox },
   { key: 'all' as const, label: '全部任务', icon: LayoutList },
+  { key: 'clipboard' as const, label: '剪贴板', icon: Clipboard },
 ]
 const historyNav = [
   { key: 'completed' as const, label: '已完成', icon: CheckCircle2 },
@@ -61,6 +64,7 @@ const titles: Record<ViewKey, { title: string; subtitle: string }> = {
   archived: { title: '归档', subtitle: '安静保存你的完成历史' },
   deleted: { title: '回收站', subtitle: '删除的任务会暂存在这里' },
   settings: { title: '偏好设置', subtitle: '让浮光 Todo 更适合你的工作方式' },
+  clipboard: { title: '剪贴板', subtitle: '暂存灵感与片段，需要时随手取用' },
 }
 
 const sourceTasks = computed<Task[]>(() => {
@@ -232,7 +236,7 @@ onBeforeUnmount(() => {
 
     <main class="main-content">
       <header class="topbar" data-tauri-drag-region>
-        <div v-if="activeView !== 'settings'" class="search-box">
+        <div v-if="activeView !== 'settings' && activeView !== 'clipboard'" class="search-box">
           <Search :size="16" />
           <input v-model="search" type="search" placeholder="搜索任务" />
           <kbd>⌘ K</kbd>
@@ -246,7 +250,7 @@ onBeforeUnmount(() => {
             <h1>{{ titles[activeView].title }}</h1>
             <p>{{ titles[activeView].subtitle }}</p>
           </div>
-          <div v-if="activeView !== 'settings'" ref="actionsElement" class="page-heading__actions">
+          <div v-if="activeView !== 'settings' && activeView !== 'clipboard'" ref="actionsElement" class="page-heading__actions">
             <button
               v-if="activeView === 'deleted'"
               class="ghost-button danger-button clear-trash-button"
@@ -328,6 +332,7 @@ onBeforeUnmount(() => {
         </div>
 
         <SettingsPanel v-if="activeView === 'settings'" />
+        <ClipboardView v-else-if="activeView === 'clipboard'" />
 
         <template v-else>
           <QuickAdd v-if="['today', 'inbox', 'all'].includes(activeView)" class="main-quick-add" source="main" />
